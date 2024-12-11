@@ -1,15 +1,16 @@
-from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.db.models import Count
 from .models import Movie, Director, Review
-from .serializers import (MovieSerializer, MovieDetailSerializer, ReviewDetailSerializer,
-                          ReviewSerializer, DirectorSerializer, DirectorDetailSerializer)
+from .serializers import (MovieSerializer, MovieDetailSerializer, ReviewSerializer, ReviewDetailSerializer,
+                          DirectorSerializer, DirectorDetailSerializer, MovieReviewSerializer)
 
 
 @api_view(http_method_names=['GET'])
 def MovieListAPIView(request):
-    movies = Movie.objects.all()
+    movies = Movie.objects.prefetch_related('reviews').select_related('director').all()
     serializer = MovieSerializer(instance=movies, many=True)
     return Response(data=serializer.data, status=status.HTTP_200_OK)
 
@@ -38,12 +39,19 @@ def RewiewDetailAPIView(request, id):
 
 @api_view(http_method_names=['GET'])
 def DirectorListAPIView(request):
-    directors = Director.objects.all()
+    directors = Director.objects.annotate(movies_count=Count('movies'))
     serializer = DirectorSerializer(instance=directors, many=True)
     return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def DirectorDetailAPIView(request, id):
-    director = Director.objects.get(id=id)
+    director = get_object_or_404(Director.objects.annotate(movies_count=Count('movies')), id=id)
     data = DirectorDetailSerializer(director).data
     return Response(data)
+
+
+@api_view(http_method_names=['GET'])
+def MovieReviewAPIView(request):
+    movies = Movie.objects.prefetch_related('reviews').select_related('director').all()
+    serializer = MovieReviewSerializer(instance=movies, many=True)
+    return Response(data=serializer.data, status=status.HTTP_200_OK)
