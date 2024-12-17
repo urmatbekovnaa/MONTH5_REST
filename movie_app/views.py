@@ -1,9 +1,13 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from setuptools.config.pyprojecttoml import validate
+
 from .models import Movie, Director, Review
 from .serializers import (MovieSerializer, MovieDetailSerializer, ReviewSerializer, ReviewDetailSerializer,
                           DirectorSerializer, DirectorDetailSerializer, MovieReviewSerializer)
+from .serializers import (MovieValidateSerializer, DirectorValidateSerializer, ReviewValidateSerializer,
+                          DirectorUpdateSerializer, MovieCreateSerializer, MovieUpdateSerializer)
 
 
 @api_view(http_method_names=['GET', 'POST'])
@@ -12,18 +16,12 @@ def MovieListAPIView(request):
             movies = Movie.objects.all()
             serializer = MovieSerializer(instance=movies, many=True)
             return Response(data=serializer.data, status=status.HTTP_200_OK)
-        elif request.method == 'POST':
-            title = request.data.get('title')
-            description = request.data.get('description')
-            duration = request.data.get('duration')
-            director_id = request.data.get('director_id')
 
-            movie = Movie.objects.create(
-                title=title,
-                description=description,
-                duration=duration,
-                director_id=director_id)
-            print(movie)
+        elif request.method == 'POST':
+            serializer = MovieCreateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            movie = Movie.objects.create(**serializer.validated_data)
             return Response(status=status.HTTP_201_CREATED,
                             data=MovieListAPIView(movie).data,)
 
@@ -37,14 +35,17 @@ def MovieDetailAPIView(request, id):
                         status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        data = MovieDetailSerializer(movie).data
-        return Response(data=data)
+        serializer = MovieDetailSerializer(movie).data
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
-        movie.title = request.data.get('title')
-        movie.description = request.data.get('description')
-        movie.duration = request.data.get('duration')
-        movie.director_id = request.data.get('director_id')
+        serializer = MovieUpdateSerializer(data=request.data, context={'movie': movie})
+        serializer.is_valid(raise_exception=True)
+
+        movie.title = serializer.validated_data.get('title')
+        movie.description = serializer.validated_data.get('description')
+        movie.duration = serializer.validated_data.get('duration')
+        movie.director_id = serializer.validated_data.get('director_id')
         movie.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=MovieDetailSerializer(movie).data)
@@ -64,17 +65,10 @@ def RewiewlistAPIView(request):
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'POST':
-        text = request.data.get('text')
-        stars = request.data.get('stars')
-        movie_id = request.data.get('movie_id')
-
-        review = Review.objects.create(
-            text=text,
-            stars=stars,
-            movie_id=movie_id
-        )
-        return Response(status=status.HTTP_201_CREATED,
-                        data=MovieReviewSerializer(review).data)
+        serializer = ReviewValidateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        review = Review.objects.create(**serializer.validated_data)
+        return Response(status=status.HTTP_201_CREATED, data=ReviewDetailSerializer(review).data)
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -86,13 +80,16 @@ def RewiewDetailAPIView(request, id):
                         status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        data = ReviewDetailSerializer(review).data
-        return Response(data=data)
+        serializer = ReviewDetailSerializer(review)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
-        review.text = request.data.get('text')
-        review.stars = request.data.get('stars')
-        review.movie_id = request.data.get('movie_id')
+        serializer = ReviewUpdateSerializer(data=request.data, context={'review': review})
+        serializer.is_valid(raise_exception=True)
+
+        review.text = serializer.validated_data.get('text')
+        review.stars = serializer.validated_data.get('stars')
+        review.movie_id = serializer.validated_data.get('movie_id')
         review.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=ReviewDetailSerializer(review).data)
@@ -110,8 +107,9 @@ def DirectorListAPIView(request):
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'POST':
-        name = request.data.get('name')
-        director = Director.objects.create(name=name)
+        serializer = DirectorCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        director = Director.objects.create(**serializer.validated_data)
         return Response(status=status.HTTP_201_CREATED,
                         data=DirectorListAPIView(director).data)
 
@@ -125,11 +123,14 @@ def DirectorDetailAPIView(request, id):
                         status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        data = DirectorDetailSerializer(director).data
-        return Response(data=data)
+        serializer = DirectorDetailSerializer(director).data
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
-        director.name = request.data.get('name')
+        serializer = DirectorUpdateSerializer(data=request.data, context={'director': director})
+        serializer.is_valid(raise_exception=True)
+
+        director.name = serializer.validated_data.get('name')
         director.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=DirectorDetailSerializer(director).data)
